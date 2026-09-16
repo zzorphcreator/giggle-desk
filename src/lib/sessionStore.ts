@@ -9,6 +9,27 @@ const SESSIONS_FILE = path.join(DATA_DIR, "sessions.json");
 
 type Store = Record<string, Session>;
 
+type GlobalWithStore = typeof globalThis & {
+  __giggleDeskSessions?: Store;
+};
+
+/** Vercel / Lambda: cwd is read-only. Local: keep JSON file persistence. */
+function useMemoryStore(): boolean {
+  return Boolean(
+    process.env.VERCEL ||
+      process.env.AWS_LAMBDA_FUNCTION_NAME ||
+      process.env.USE_MEMORY_STORE === "1"
+  );
+}
+
+function memoryStore(): Store {
+  const g = globalThis as GlobalWithStore;
+  if (!g.__giggleDeskSessions) {
+    g.__giggleDeskSessions = {};
+  }
+  return g.__giggleDeskSessions;
+}
+
 function ensureDataDir(): void {
   if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -16,6 +37,9 @@ function ensureDataDir(): void {
 }
 
 function readStore(): Store {
+  if (useMemoryStore()) {
+    return memoryStore();
+  }
   ensureDataDir();
   if (!fs.existsSync(SESSIONS_FILE)) {
     return {};
@@ -29,6 +53,10 @@ function readStore(): Store {
 }
 
 function writeStore(store: Store): void {
+  if (useMemoryStore()) {
+    (globalThis as GlobalWithStore).__giggleDeskSessions = store;
+    return;
+  }
   ensureDataDir();
   fs.writeFileSync(SESSIONS_FILE, JSON.stringify(store, null, 2), "utf-8");
 }
