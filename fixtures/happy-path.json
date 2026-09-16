@@ -1,0 +1,84 @@
+{
+  "name": "happy-path-joke-to-message",
+  "description": "Joke banter → name/phone → message taken → schema updates",
+  "business": "Acme SMB Demo",
+  "turns": [
+    {
+      "user": "Tell me something funny!",
+      "expect": {
+        "intent.primary": "chat",
+        "flags.jokeModeOnly": true,
+        "replyContains": ["joke", "message", "Want another"]
+      }
+    },
+    {
+      "user": "Ha! Okay, can you take a message for Jordan?",
+      "expect": {
+        "intent.primary": "message",
+        "message.for": "Jordan",
+        "flags.jokeModeOnly": false
+      }
+    },
+    {
+      "user": "My name is Sam Rivera and my number is 555-010-4422. Please tell Jordan the delivery will arrive Thursday morning and to call me back.",
+      "expect": {
+        "caller.name": "Sam Rivera",
+        "caller.phone": "555-010-4422",
+        "intent.primary": "message",
+        "message.body": true,
+        "message.urgency": "normal"
+      }
+    },
+    {
+      "user": "That's all, thanks!",
+      "expect": {
+        "sentiment.label": "positive"
+      }
+    }
+  ],
+  "finalCaptureExample": {
+    "sessionId": "<uuid>",
+    "updatedAt": "<ISO-8601>",
+    "caller": {
+      "name": "Sam Rivera",
+      "phone": "555-010-4422",
+      "email": null,
+      "company": null
+    },
+    "intent": {
+      "primary": "message",
+      "summary": "Message for Jordan",
+      "confidence": 0.95
+    },
+    "sentiment": {
+      "label": "positive",
+      "score": 0.9,
+      "notes": "Wrapping up positively"
+    },
+    "message": {
+      "for": "Jordan",
+      "body": "Please tell Jordan the delivery will arrive Thursday morning and to call me back.",
+      "urgency": "normal"
+    },
+    "appointment": {
+      "desiredWhen": null,
+      "durationMinutes": null,
+      "partySize": null,
+      "notes": null,
+      "status": "none"
+    },
+    "routing": {
+      "needed": false,
+      "department": null,
+      "reason": null
+    },
+    "feedback": {
+      "rating": null,
+      "comment": null
+    },
+    "flags": {
+      "needsHuman": false,
+      "jokeModeOnly": false
+    }
+  }
+}
