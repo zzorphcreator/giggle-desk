@@ -45,5 +45,8 @@ export function emptyCapture(sessionId: string): Capture {
       needsHuman: false,
       jokeModeOnly: false,
     },
+    persona: {
+      activeAs: null,
+    },
   };
 }

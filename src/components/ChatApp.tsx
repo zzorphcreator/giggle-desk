@@ -1,8 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Capture } from "@/types/capture";
-import { emptyCapture } from "@/lib/emptyCapture";
 import styles from "./ChatApp.module.css";
 
 interface UiMessage {
@@ -15,18 +13,16 @@ const WELCOME: UiMessage = {
   id: "welcome",
   role: "assistant",
   content:
-    "Hey hey! Welcome to Acme SMB Demo — I'm your funny receptionist. Crack a joke request, leave a message, book a time, or just vibe. What'll it be?",
+    "Hey hey! Welcome to Acme SMB Demo — I'm your funny receptionist. Crack a joke request, leave a message, book a time, or just vibe. Want a twist? Say \"act as Musk\" (or anyone) and I'll match the tone. What'll it be?",
 };
 
 export default function ChatApp() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<UiMessage[]>([WELCOME]);
-  const [capture, setCapture] = useState<Capture>(() =>
-    emptyCapture("pending")
-  );
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<string>("mock");
+  const [personaAs, setPersonaAs] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -68,8 +64,8 @@ export default function ChatApp() {
         throw new Error(data.error || "Chat failed");
       }
       setSessionId(data.sessionId);
-      setCapture(data.capture);
       if (data.mode) setMode(data.mode);
+      setPersonaAs(data.capture?.persona?.activeAs ?? null);
       setMessages((m) => [
         ...m,
         {
@@ -96,7 +92,7 @@ export default function ChatApp() {
   const reset = () => {
     setSessionId(null);
     setMessages([WELCOME]);
-    setCapture(emptyCapture("pending"));
+    setPersonaAs(null);
     setError(null);
     setInput("");
     inputRef.current?.focus();
@@ -110,6 +106,12 @@ export default function ChatApp() {
           <p className={styles.subtitle}>
             Acme SMB Demo · funny receptionist ·{" "}
             <span className={styles.badge}>{mode} mode</span>
+            {personaAs ? (
+              <>
+                {" "}
+                · <span className={styles.personaBadge}>as {personaAs}</span>
+              </>
+            ) : null}
           </p>
         </div>
         <button type="button" className={styles.resetBtn} onClick={reset}>
@@ -128,7 +130,11 @@ export default function ChatApp() {
                 }
               >
                 <span className={styles.roleLabel}>
-                  {m.role === "user" ? "You" : "Receptionist"}
+                  {m.role === "user"
+                    ? "You"
+                    : personaAs
+                      ? `Receptionist · ${personaAs}`
+                      : "Receptionist"}
                 </span>
                 <p>{m.content}</p>
               </div>
@@ -151,7 +157,7 @@ export default function ChatApp() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={onKeyDown}
-              placeholder="Say hi, ask for a joke, or leave a message…"
+              placeholder='Say hi, "act as Musk", or leave a message…'
               disabled={loading}
               aria-label="Message"
             />
@@ -165,16 +171,6 @@ export default function ChatApp() {
             </button>
           </div>
         </section>
-
-        <aside className={styles.capturePane} aria-label="Captured so far">
-          <h2 className={styles.captureTitle}>Captured so far</h2>
-          <p className={styles.captureHint}>
-            Live schema snapshot — updates every turn
-          </p>
-          <pre className={styles.json}>
-            {JSON.stringify(capture, null, 2)}
-          </pre>
-        </aside>
       </div>
     </div>
   );

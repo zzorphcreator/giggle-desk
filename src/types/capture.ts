@@ -65,6 +65,11 @@ export interface Flags {
   jokeModeOnly: boolean;
 }
 
+/** Entertainment voice overlay — not a claim to be that person. */
+export interface Persona {
+  activeAs: string | null;
+}
+
 export interface Capture {
   sessionId: string;
   updatedAt: string;
@@ -76,6 +81,7 @@ export interface Capture {
   routing: Routing;
   feedback: Feedback;
   flags: Flags;
+  persona: Persona;
 }
 
 export interface ChatMessage {

@@ -1,6 +1,46 @@
 import type { Capture, ChatMessage } from "@/types/capture";
 import { BUSINESS_NAME } from "./prompt";
 
+function ensurePersona(capture: Capture): Capture {
+  if (!capture.persona) {
+    capture.persona = { activeAs: null };
+  }
+  return capture;
+}
+
+function detectClearPersona(text: string): boolean {
+  return /\b(be yourself|stop acting|drop the (persona|act|character)|back to normal|normal receptionist|no more (persona|acting|roleplay))\b/i.test(
+    text
+  );
+}
+
+function detectActAs(text: string): string | null {
+  const patterns = [
+    /\bact\s+as\s+(?:an?\s+)?([A-Za-z][A-Za-z0-9 .'\-]{1,40})/i,
+    /\btalk\s+like\s+(?:an?\s+)?([A-Za-z][A-Za-z0-9 .'\-]{1,40})/i,
+    /\b(?:roleplay|role-play)\s+as\s+(?:an?\s+)?([A-Za-z][A-Za-z0-9 .'\-]{1,40})/i,
+    /\bbe\s+([A-Z][A-Za-z0-9 .'\-]{1,40})\s+for\s+(?:a\s+)?(?:bit|while|me)/i,
+    /\bin\s+the\s+(?:style|voice|tone)\s+of\s+([A-Za-z][A-Za-z0-9 .'\-]{1,40})/i,
+  ];
+  for (const p of patterns) {
+    const m = text.match(p);
+    if (m?.[1]) {
+      let name = m[1].trim().replace(/[.,!?]+$/, "");
+      // Avoid matching "be yourself"
+      if (/^yourself$/i.test(name)) return null;
+      return name;
+    }
+  }
+  return null;
+}
+
+function withPersonaVoice(reply: string, activeAs: string | null): string {
+  if (!activeAs) return reply;
+  // Light mock flavor — OpenAI path does richer imitation
+  return `(channeling ${activeAs}) ${reply}`;
+}
+
+
 /**
  * Deterministic demo/mock LLM — no API key required.
  * Heuristics extract contact info + intent and craft witty replies.
@@ -119,8 +159,16 @@ export function mockChat(
   prior: ChatMessage[],
   capture: Capture
 ): { reply: string; capture: Capture } {
-  const next: Capture = structuredClone(capture);
+  const next: Capture = ensurePersona(structuredClone(capture));
   next.updatedAt = new Date().toISOString();
+
+  const justClearedPersona = detectClearPersona(userText);
+  const requestedPersona = detectActAs(userText);
+  if (justClearedPersona) {
+    next.persona.activeAs = null;
+  } else if (requestedPersona) {
+    next.persona.activeAs = requestedPersona;
+  }
 
   const name = extractName(userText);
   const phone = extractPhone(userText);
@@ -159,9 +207,25 @@ export function mockChat(
   const wantsAppt = detectAppointment(userText);
   const wantsRoute = detectRouting(userText);
   const wantsFeedback = detectFeedback(userText);
+  const businessAsk = wantsMessage || wantsAppt || wantsRoute || wantsFeedback;
 
+  if (justClearedPersona && !businessAsk && !wantsJoke) {
+    next.intent = {
+      primary: "chat",
+      summary: "Dropped act-as persona",
+      confidence: 0.9,
+    };
+    reply =
+      "Back to regular Giggle Desk energy — glitter pen, dad jokes, and the clipboard. What can I do for you?";
+  } else if (requestedPersona && !businessAsk && !wantsJoke) {
+    next.intent = {
+      primary: "chat",
+      summary: `Act-as voice: ${requestedPersona}`,
+      confidence: 0.9,
+    };
+    reply = `Copy that — dialing up my best "${requestedPersona}" vibes (impression only; still your receptionist bot). Hit me with a message, booking, or just keep chatting.`;
   // Pure joke / chat-first (no concurrent business ask)
-  if (wantsJoke && !wantsMessage && !wantsAppt && !wantsRoute) {
+  } else if (wantsJoke && !wantsMessage && !wantsAppt && !wantsRoute) {
     next.intent = {
       primary: "chat",
       summary: "Wanted a joke / funny chat",
@@ -297,5 +361,5 @@ export function mockChat(
     next.intent.summary = `Message for ${next.message.for ?? "the team"}`;
   }
 
-  return { reply, capture: next };
+  return { reply: withPersonaVoice(reply, next.persona.activeAs), capture: next };
 }

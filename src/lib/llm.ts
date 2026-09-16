@@ -18,11 +18,14 @@ function buildUserPayload(
   userText: string,
   capture: Capture
 ): string {
+  const activeAs = capture.persona?.activeAs ?? null;
   return JSON.stringify({
     userMessage: userText,
     currentCapture: capture,
-    instruction:
-      "Reply with JSON { reply, capture }. Merge new extractions into currentCapture.",
+    activePersona: activeAs,
+    instruction: activeAs
+      ? `Reply with JSON { reply, capture }. Merge new extractions into currentCapture. Stay in the voice/style of "${activeAs}" unless the user clears the persona. Update persona.activeAs accordingly.`
+      : "Reply with JSON { reply, capture }. Merge new extractions into currentCapture. If they request act-as, set persona.activeAs.",
   });
 }
 
@@ -79,13 +82,16 @@ async function openaiChat(
     throw new Error("OpenAI JSON missing reply or capture");
   }
 
+  const nextCapture: Capture = {
+    ...parsed.capture,
+    sessionId: capture.sessionId,
+    updatedAt: new Date().toISOString(),
+    persona: parsed.capture.persona ?? capture.persona ?? { activeAs: null },
+  };
+
   return {
     reply: parsed.reply,
-    capture: {
-      ...parsed.capture,
-      sessionId: capture.sessionId,
-      updatedAt: new Date().toISOString(),
-    },
+    capture: nextCapture,
   };
 }
 
