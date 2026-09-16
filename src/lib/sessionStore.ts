@@ -13,13 +13,16 @@ type GlobalWithStore = typeof globalThis & {
   __giggleDeskSessions?: Store;
 };
 
-/** Vercel / Lambda: cwd is read-only. Local: keep JSON file persistence. */
+/**
+ * Fail closed to memory on serverless/production.
+ * Local `next dev` keeps JSON file persistence unless overridden.
+ */
 function useMemoryStore(): boolean {
-  return Boolean(
-    process.env.VERCEL ||
-      process.env.AWS_LAMBDA_FUNCTION_NAME ||
-      process.env.USE_MEMORY_STORE === "1"
-  );
+  if (process.env.USE_MEMORY_STORE === "1") return true;
+  if (process.env.USE_FILE_STORE === "1") return false;
+  if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) return true;
+  // NODE_ENV=production (e.g. Vercel) even if VERCEL env is missing at runtime
+  return process.env.NODE_ENV === "production";
 }
 
 function memoryStore(): Store {
